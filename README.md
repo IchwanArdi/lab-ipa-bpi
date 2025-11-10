@@ -1,36 +1,169 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lab IPA BPI - Sistem Informasi Laboratorium
 
-## Getting Started
+Sistem informasi laboratorium IPA untuk Sekolah BPI Bandung. Website ini digunakan oleh admin lab dan guru IPA untuk mengelola inventaris alat, peminjaman alat, laporan barang rusak, daftar guru, tata tertib, dan keamanan (K3).
 
-First, run the development server:
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **Language:** TypeScript
+- **Styling:** TailwindCSS
+- **Authentication:** NextAuth.js v5
+- **Database:** MySQL (dengan mysql2)
+- **Validation:** Zod
+
+## Fitur
+
+1. **Dashboard** - Ringkasan inventaris, peminjaman aktif, laporan rusak
+2. **Inventaris Alat** - CRUD alat (nama, kode, kategori, stok, kondisi)
+3. **Peminjaman Alat** - Form peminjaman dengan status (menunggu, disetujui, dipinjam, dikembalikan)
+4. **Barang Rusak** - Laporan barang rusak dengan upload foto
+5. **Daftar Guru** - List guru, kontak, dan mata pelajaran
+6. **Tata Tertib** - Tampilkan peraturan lab
+7. **K3 / Keamanan** - Panduan SOP dan alat keselamatan
+8. **Manajemen Pengguna** - Buat akun guru/admin, reset password
+
+## Role Pengguna
+
+- **Admin** - Kelola semua data dan akun pengguna
+- **Guru** - Login, pinjam alat, lapor kerusakan, lihat tata tertib & daftar guru
+
+## Akun Default
+
+- **Admin:** username `admin`, password `12345678`
+- **Guru:** username `guru1`, password `12345678`
+
+## Setup & Instalasi
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Install & Setup MySQL
+
+**Install MySQL Server** (jika belum):
+
+- Windows: Download dari [MySQL Official](https://dev.mysql.com/downloads/mysql/) atau gunakan XAMPP/WAMP
+- Mac: `brew install mysql`
+- Linux: `sudo apt-get install mysql-server`
+
+**Buat Database:**
+
+```sql
+CREATE DATABASE bpi_lab;
+```
+
+Atau via command line:
+
+```bash
+mysql -u root -p -e "CREATE DATABASE bpi_lab;"
+```
+
+### 3. Setup Environment Variables
+
+Buat file `.env` di root project dengan isi:
+
+```env
+# Database Configuration
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=bpi_lab
+
+# NextAuth Configuration
+NEXTAUTH_SECRET="your-secret-key-change-this-in-production"
+NEXTAUTH_URL="http://localhost:3000"
+```
+
+**Catatan:**
+
+- `DB_HOST`: Host MySQL (default: localhost)
+- `DB_USER`: Username MySQL (default: root)
+- `DB_PASSWORD`: Password MySQL (kosongkan jika tidak ada password)
+- `DB_NAME`: Nama database (default: bpi_lab)
+- Generate `NEXTAUTH_SECRET` dengan: `openssl rand -base64 32`
+
+**Alternatif:** Anda juga bisa menggunakan format `DATABASE_URL`:
+
+```env
+DATABASE_URL="mysql://root:password@localhost:3306/bpi_lab"
+```
+
+### 4. Setup Database Schema
+
+Jalankan script setup untuk membuat database dan tabel:
+
+```bash
+npm run db:setup
+```
+
+Script ini akan:
+
+- Membuat database `bpi_lab` (jika belum ada)
+- Membuat semua tabel (User, Item, Loan, DamageReport, Teacher)
+- Membuat user default (admin dan guru)
+
+**Alternatif:** Jika ingin manual, jalankan SQL script:
+
+```bash
+mysql -u root -p bpi_lab < database/schema.sql
+```
+
+### 5. Jalankan Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka [http://localhost:3000](http://localhost:3000) di browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Struktur Project
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+app/
+├── api/              # API routes
+├── dashboard/        # Halaman dashboard
+├── login/            # Halaman login
+└── layout.tsx        # Root layout
 
-## Learn More
+components/           # Komponen reusable
+database/             # SQL schema file
+lib/                  # Utilities (auth, db)
+types/                # TypeScript type definitions
+public/               # Static files & uploads
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 🔄 Database Configuration
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Aplikasi menggunakan MySQL sebagai database. Untuk development, pastikan:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- MySQL server sudah running
+- Database sudah dibuat
+- `DATABASE_URL` di `.env` sudah dikonfigurasi dengan benar
+- Semua tabel sudah dibuat dengan menjalankan `database/schema.sql`
 
-## Deploy on Vercel
+Format `DATABASE_URL`:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+mysql://username:password@host:port/database_name
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📝 Scripts
+
+- `npm run dev` - Jalankan development server
+- `npm run build` - Build untuk production
+- `npm run start` - Jalankan production server
+- `npm run lint` - Run ESLint
+
+## 🔒 Security Notes
+
+- Password disimpan dengan bcrypt hash
+- Route protection dengan NextAuth middleware
+- Role-based access control (RBAC)
+- File upload validation
+- SQL injection protection dengan prepared statements
+
+## 📄 License
+
+Private project untuk Sekolah BPI Bandung
