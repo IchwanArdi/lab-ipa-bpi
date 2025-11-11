@@ -94,7 +94,7 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Data tidak valid', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Data tidak valid', details: error.issues }, { status: 400 });
     }
     console.error('Error updating profile:', error);
     return NextResponse.json({ error: 'Gagal mengupdate profile' }, { status: 500 });

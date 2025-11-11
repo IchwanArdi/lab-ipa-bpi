@@ -89,10 +89,10 @@ export default function BarangRusakPage() {
         fetchReports();
       } else {
         const error = await res.json();
-        await showAlert(error.error || 'Gagal membuat laporan', { type: 'error' });
+        await showAlert(error.error || 'Gagal membuat laporan');
       }
     } catch (error) {
-      await showAlert('Terjadi kesalahan', { type: 'error' });
+      await showAlert('Terjadi kesalahan');
     }
   };
 
@@ -108,10 +108,10 @@ export default function BarangRusakPage() {
         fetchReports();
       } else {
         const error = await res.json();
-        await showAlert(error.error || 'Gagal mengupdate status', { type: 'error' });
+        await showAlert(error.error || 'Gagal mengupdate status');
       }
     } catch (error) {
-      await showAlert('Terjadi kesalahan', { type: 'error' });
+      await showAlert('Terjadi kesalahan');
     }
   };
 

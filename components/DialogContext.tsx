@@ -17,8 +17,8 @@ interface DialogOptions {
 }
 
 interface DialogContextType {
-  showAlert: (message: string, options?: Omit<DialogOptions, 'onConfirm' | 'onCancel'>) => Promise<void>;
-  showConfirm: (message: string, options?: Omit<DialogOptions, 'onConfirm' | 'onCancel'>) => Promise<boolean>;
+  showAlert: (message: string, options?: Omit<DialogOptions, 'onConfirm' | 'onCancel' | 'message'>) => Promise<void>;
+  showConfirm: (message: string, options?: Omit<DialogOptions, 'onConfirm' | 'onCancel' | 'message'>) => Promise<boolean>;
 }
 
 const DialogContext = createContext<DialogContextType | undefined>(undefined);
