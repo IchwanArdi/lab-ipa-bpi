@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:setup": "node scripts/setup-db.js"
+    "db:setup": "node scripts/setup-db.js",
+    "db:optimize": "node scripts/optimize-indexes.js"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",

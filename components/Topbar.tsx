@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { UserRole } from '@/types/database';
@@ -70,7 +71,7 @@ export default function Topbar({ user }: TopbarProps) {
             {/* User Avatar - Mobile: hanya avatar, Desktop: avatar + info */}
             <div className="flex items-center gap-2 sm:gap-3">
               {user.profileImage ? (
-                <img src={user.profileImage} alt={user.name} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-white shadow-md shrink-0" />
+                <Image src={user.profileImage} alt={user.name} width={40} height={40} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-white shadow-md shrink-0" />
               ) : (
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-md shrink-0">
                   {user.name.charAt(0).toUpperCase()}

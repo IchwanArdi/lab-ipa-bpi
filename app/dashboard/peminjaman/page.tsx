@@ -61,11 +61,6 @@ export default function PeminjamanPage() {
       // Tampilkan semua item, tapi yang bisa dipinjam akan di-highlight di dropdown
       // User tetap bisa melihat semua alat meskipun stok 0 atau rusak
       setItems(data);
-
-      // Log untuk debugging
-      console.log('Total items:', data.length);
-      const availableItems = data.filter((item: Item) => item.stock > 0 && item.condition === 'BAIK');
-      console.log('Available items (stok > 0 & BAIK):', availableItems.length);
     } catch (error) {
       console.error('Error fetching items:', error);
     }

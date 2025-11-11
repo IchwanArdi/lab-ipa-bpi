@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -307,7 +308,7 @@ export default function ProfilePage() {
             <div className="text-center">
               <div className="relative w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4">
                 {imagePreview || profile.profileImage ? (
-                  <img src={imagePreview || profile.profileImage || ''} alt={profile.name} className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg" />
+                  <Image src={imagePreview || profile.profileImage || ''} alt={profile.name} width={96} height={96} className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg" />
                 ) : (
                   <div className="w-full h-full rounded-full bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-3xl sm:text-4xl font-bold shadow-lg">{profile.name.charAt(0).toUpperCase()}</div>
                 )}
@@ -378,7 +379,7 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-4">
                       {imagePreview || profile.profileImage ? (
                         <div className="relative">
-                          <img src={imagePreview || profile.profileImage || ''} alt="Preview" className="w-20 h-20 rounded-full object-cover border-2 border-gray-200" />
+                          <Image src={imagePreview || profile.profileImage || ''} alt="Preview" width={80} height={80} className="w-20 h-20 rounded-full object-cover border-2 border-gray-200" />
                           <button type="button" onClick={handleRemoveImage} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white text-xs transition-colors">
                             <X className="w-3 h-3" />
                           </button>

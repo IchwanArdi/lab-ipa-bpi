@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import DataTable from '@/components/DataTable';
 import Button from '@/components/Button';
@@ -11,7 +12,6 @@ import { SkeletonTable } from '@/components/Skeleton';
 import { DamageReport, DamageReportStatus, Item } from '@/types/database';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import Image from 'next/image';
 import { useDialog } from '@/components/DialogContext';
 import { Eye, CheckCircle, X } from 'lucide-react';
 
@@ -139,7 +139,7 @@ export default function BarangRusakPage() {
           accessor: (row: DamageReportWithRelations) =>
             row.photoUrl ? (
               <div className="relative">
-                <img src={row.photoUrl} alt="Foto kerusakan" className="w-12 h-12 object-cover rounded border border-gray-200" />
+                <Image src={row.photoUrl} alt="Foto kerusakan" width={48} height={48} className="w-12 h-12 object-cover rounded border border-gray-200" unoptimized={row.photoUrl.startsWith('http')} />
               </div>
             ) : (
               <span className="text-gray-400 text-xs">Tidak ada foto</span>
@@ -168,7 +168,7 @@ export default function BarangRusakPage() {
           accessor: (row: DamageReportWithRelations) =>
             row.photoUrl ? (
               <div className="relative">
-                <img src={row.photoUrl} alt="Foto kerusakan" className="w-12 h-12 object-cover rounded border border-gray-200" />
+                <Image src={row.photoUrl} alt="Foto kerusakan" width={48} height={48} className="w-12 h-12 object-cover rounded border border-gray-200" unoptimized={row.photoUrl.startsWith('http')} />
               </div>
             ) : (
               <span className="text-gray-400 text-xs">Tidak ada foto</span>
@@ -447,7 +447,7 @@ export default function BarangRusakPage() {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Foto Kerusakan</label>
                   <div className="relative">
-                    <img src={selectedReport.photoUrl} alt="Foto kerusakan" className="w-full max-w-md rounded-lg border border-gray-200" />
+                    <Image src={selectedReport.photoUrl} alt="Foto kerusakan" width={512} height={512} className="w-full max-w-md rounded-lg border border-gray-200" unoptimized={selectedReport.photoUrl.startsWith('http')} />
                   </div>
                 </div>
               )}

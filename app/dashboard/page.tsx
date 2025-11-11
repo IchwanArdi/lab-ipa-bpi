@@ -1,8 +1,8 @@
 import { query } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import Card from '@/components/Card';
-import AnalyticsCharts from '@/components/AnalyticsCharts';
 import RemindersList from '@/components/RemindersList';
+import AnalyticsChartsWrapper from '@/components/AnalyticsChartsWrapper';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Package, ClipboardList, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
@@ -184,7 +184,7 @@ export default async function DashboardPage() {
       <RemindersList />
 
       {/* Analytics Charts - Hanya untuk ADMIN */}
-      {userRole === 'ADMIN' && <AnalyticsCharts />}
+      {userRole === 'ADMIN' && <AnalyticsChartsWrapper />}
 
       {/* Recent Activities - Berbeda untuk ADMIN vs GURU */}
       <Card title={userRole === 'ADMIN' ? 'Aktivitas Terbaru' : 'Peminjaman Terbaru Saya'} hover>

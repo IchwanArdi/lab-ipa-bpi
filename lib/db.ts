@@ -37,12 +37,14 @@ function getConnectionConfig() {
   };
 }
 
-// Create connection pool
+// Create connection pool with optimized settings
 const pool = mysql.createPool({
   ...getConnectionConfig(),
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: process.env.NODE_ENV === 'production' ? 20 : 10,
   queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
 });
 
 // Helper function to execute queries

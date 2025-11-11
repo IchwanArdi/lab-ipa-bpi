@@ -40,15 +40,6 @@ export default function InventarisPage() {
   const isAdmin = session?.user?.role === 'ADMIN';
   const isGuru = session?.user?.role === 'GURU';
 
-  // Debug: log untuk memastikan role terdeteksi
-  useEffect(() => {
-    if (session) {
-      console.log('User role:', session.user?.role);
-      console.log('isAdmin:', isAdmin);
-      console.log('isGuru:', isGuru);
-    }
-  }, [session, isAdmin, isGuru]);
-
   useEffect(() => {
     fetchItems();
   }, []);
@@ -87,8 +78,6 @@ export default function InventarisPage() {
         condition: formData.condition,
         description: formData.description?.trim() || undefined,
       };
-
-      console.log('Submitting data:', submitData);
 
       const res = await fetch(url, {
         method,

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { UserRole } from '@/types/database';
 import { LayoutDashboard, Package, ClipboardList, AlertTriangle, FileText, Shield, Users, User } from 'lucide-react';
@@ -160,7 +161,7 @@ export default function Sidebar({ user }: SidebarProps) {
           <div className="p-4 border-t border-gray-200/50 bg-gray-50/50">
             <div className="flex items-center gap-3 p-3 rounded-xl bg-white shadow-sm border border-gray-100">
               {user.profileImage ? (
-                <img src={user.profileImage} alt={user.name} className="w-10 h-10 rounded-full object-cover border-2 border-gray-200 shadow-md" />
+                <Image src={user.profileImage} alt={user.name} width={40} height={40} className="w-10 h-10 rounded-full object-cover border-2 border-gray-200 shadow-md" />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-md">{user.name.charAt(0).toUpperCase()}</div>
               )}
