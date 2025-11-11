@@ -1,6 +1,6 @@
 # Lab IPA BPI - Sistem Informasi Laboratorium
 
-Sistem informasi laboratorium IPA untuk Sekolah BPI Bandung. Website ini digunakan oleh admin lab dan guru IPA untuk mengelola inventaris alat, peminjaman alat, laporan barang rusak, daftar guru, tata tertib, dan keamanan (K3).
+Sistem informasi laboratorium IPA untuk Sekolah BPI Bandung. Website ini digunakan oleh admin lab dan guru IPA untuk mengelola inventaris alat, peminjaman alat, laporan barang rusak, tata tertib, dan keamanan (K3).
 
 ## Tech Stack
 
@@ -17,15 +17,14 @@ Sistem informasi laboratorium IPA untuk Sekolah BPI Bandung. Website ini digunak
 2. **Inventaris Alat** - CRUD alat (nama, kode, kategori, stok, kondisi)
 3. **Peminjaman Alat** - Form peminjaman dengan status (menunggu, disetujui, dipinjam, dikembalikan)
 4. **Barang Rusak** - Laporan barang rusak dengan upload foto
-5. **Daftar Guru** - List guru, kontak, dan mata pelajaran
-6. **Tata Tertib** - Tampilkan peraturan lab
-7. **K3 / Keamanan** - Panduan SOP dan alat keselamatan
-8. **Manajemen Pengguna** - Buat akun guru/admin, reset password
+5. **Tata Tertib** - Tampilkan peraturan lab
+6. **K3 / Keamanan** - Panduan SOP dan alat keselamatan
+7. **Manajemen Pengguna** - Buat akun guru/admin, reset password
 
 ## Role Pengguna
 
 - **Admin** - Kelola semua data dan akun pengguna
-- **Guru** - Login, pinjam alat, lapor kerusakan, lihat tata tertib & daftar guru
+- **Guru** - Login, pinjam alat, lapor kerusakan, lihat tata tertib
 
 ## Akun Default
 
@@ -101,7 +100,7 @@ npm run db:setup
 Script ini akan:
 
 - Membuat database `bpi_lab` (jika belum ada)
-- Membuat semua tabel (User, Item, Loan, DamageReport, Teacher)
+- Membuat semua tabel (User, Item, Loan, DamageReport, Notification)
 - Membuat user default (admin dan guru)
 
 **Alternatif:** Jika ingin manual, jalankan SQL script:

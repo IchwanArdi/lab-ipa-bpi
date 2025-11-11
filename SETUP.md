@@ -73,7 +73,7 @@ npm run db:setup
 Script ini akan:
 
 - Membuat database `bpi_lab` (jika belum ada)
-- Membuat semua tabel (User, Item, Loan, DamageReport, Teacher)
+- Membuat semua tabel (User, Item, Loan, DamageReport, Notification)
 - Membuat user default:
   - **Admin**: username `admin`, password `12345678`
   - **Guru**: username `guru1`, password `12345678`

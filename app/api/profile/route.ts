@@ -8,6 +8,7 @@ const updateProfileSchema = z.object({
   name: z.string().min(1, 'Nama wajib diisi'),
   password: z.string().min(6, 'Password minimal 6 karakter').optional().or(z.literal('')),
   profileImage: z.string().optional().or(z.literal('')).nullable(),
+  gmail: z.string().email('Format email tidak valid').optional().or(z.literal('')).nullable(),
 });
 
 export async function GET() {
@@ -17,7 +18,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const users = await query<any[]>('SELECT id, username, role, name, profileImage, createdAt, updatedAt FROM User WHERE id = ?', [session.user.id]);
+    const users = await query<any[]>('SELECT id, username, role, name, gmail, profileImage, createdAt, updatedAt FROM User WHERE id = ?', [session.user.id]);
 
     if (!users || users.length === 0) {
       return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
@@ -60,6 +61,11 @@ export async function PUT(request: NextRequest) {
       values.push(validatedData.profileImage || null);
     }
 
+    if (validatedData.gmail !== undefined) {
+      updates.push('gmail = ?');
+      values.push(validatedData.gmail && validatedData.gmail.trim() !== '' ? validatedData.gmail : null);
+    }
+
     if (updates.length === 0) {
       return NextResponse.json({ error: 'Tidak ada data untuk diupdate' }, { status: 400 });
     }
@@ -67,7 +73,7 @@ export async function PUT(request: NextRequest) {
     values.push(session.user.id);
     await query(`UPDATE User SET ${updates.join(', ')}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`, values);
 
-    const users = await query<any[]>('SELECT id, username, role, name, profileImage, createdAt, updatedAt FROM User WHERE id = ?', [session.user.id]);
+    const users = await query<any[]>('SELECT id, username, role, name, gmail, profileImage, createdAt, updatedAt FROM User WHERE id = ?', [session.user.id]);
 
     return NextResponse.json(users[0]);
   } catch (error) {

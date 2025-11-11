@@ -61,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     values.push(id);
     await query(`UPDATE User SET ${updates.join(', ')}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`, values);
 
-    const users = await query<any[]>('SELECT id, username, role, name, createdAt, updatedAt FROM User WHERE id = ?', [id]);
+    const users = await query<any[]>('SELECT id, username, role, name, gmail, createdAt, updatedAt FROM User WHERE id = ?', [id]);
 
     return NextResponse.json(users[0]);
   } catch (error) {

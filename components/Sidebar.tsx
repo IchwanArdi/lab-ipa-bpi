@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserRole } from '@/types/database';
-import { LayoutDashboard, Package, ClipboardList, AlertTriangle, GraduationCap, FileText, Shield, Users, User } from 'lucide-react';
+import { LayoutDashboard, Package, ClipboardList, AlertTriangle, FileText, Shield, Users, User } from 'lucide-react';
 
 interface SidebarProps {
   user: {
@@ -34,7 +34,6 @@ const guruOnlyItems = [
 const adminOnlyItems = [
   { name: 'Kelola Peminjaman', href: '/dashboard/peminjaman', icon: ClipboardList },
   { name: 'Kelola Laporan', href: '/dashboard/barang-rusak', icon: AlertTriangle },
-  { name: 'Daftar Guru', href: '/dashboard/guru', icon: GraduationCap },
   { name: 'Manajemen Pengguna', href: '/dashboard/pengguna', icon: Users },
 ];
 

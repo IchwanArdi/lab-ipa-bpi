@@ -10,6 +10,7 @@ export interface User {
   password: string;
   role: UserRole;
   name: string;
+  gmail: string | null;
   profileImage: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -53,16 +54,6 @@ export interface DamageReport {
   updatedAt: Date;
   user?: User;
   item?: Item;
-}
-
-export interface Teacher {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  subject: string;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 export type NotificationType = 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';

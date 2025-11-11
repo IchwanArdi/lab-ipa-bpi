@@ -27,6 +27,7 @@ export default function ProfilePage() {
     name: '',
     password: '',
     profileImage: '',
+    gmail: '',
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export default function ProfilePage() {
           name: data.name || '',
           password: '',
           profileImage: data.profileImage || '',
+          gmail: data.gmail || '',
         });
         setImagePreview(data.profileImage || null);
       } else {
@@ -197,6 +199,11 @@ export default function ProfilePage() {
         body.profileImage = formData.profileImage;
       }
 
+      // Include gmail
+      if (formData.gmail !== undefined) {
+        body.gmail = formData.gmail;
+      }
+
       const res = await fetch('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -240,6 +247,7 @@ export default function ProfilePage() {
         name: profile.name || '',
         password: '',
         profileImage: profile.profileImage || '',
+        gmail: profile.gmail || '',
       });
       setImagePreview(profile.profileImage || null);
     }
@@ -362,6 +370,8 @@ export default function ProfilePage() {
 
                 <Input label="Nama Lengkap" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="Masukkan nama lengkap" />
 
+                <Input label="Gmail" type="email" value={formData.gmail} onChange={(e) => setFormData({ ...formData, gmail: e.target.value })} placeholder="Masukkan alamat Gmail" />
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Gambar Profile</label>
                   <div className="space-y-3">
@@ -428,6 +438,11 @@ export default function ProfilePage() {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label>
                   <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900">{profile.name}</div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Gmail</label>
+                  <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900">{profile.gmail || '-'}</div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">

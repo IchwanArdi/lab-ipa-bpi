@@ -21,7 +21,6 @@ const pageTitles: Record<string, string> = {
   '/dashboard/inventaris': 'Inventaris Alat',
   '/dashboard/peminjaman': 'Peminjaman Alat',
   '/dashboard/barang-rusak': 'Barang Rusak',
-  '/dashboard/guru': 'Daftar Guru',
   '/dashboard/tata-tertib': 'Tata Tertib',
   '/dashboard/k3': 'K3 / Keamanan',
   '/dashboard/pengguna': 'Manajemen Pengguna',

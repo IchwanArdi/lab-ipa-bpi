@@ -20,7 +20,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const users = await query<any[]>('SELECT id, username, role, name, createdAt, updatedAt FROM User ORDER BY createdAt DESC');
+    const users = await query<any[]>('SELECT id, username, role, name, gmail, createdAt, updatedAt FROM User ORDER BY createdAt DESC');
 
     return NextResponse.json(users);
   } catch (error) {
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     await query('INSERT INTO User (id, username, password, role, name) VALUES (?, ?, ?, ?, ?)', [id, validatedData.username, hashedPassword, validatedData.role as UserRole, validatedData.name]);
 
-    const users = await query<any[]>('SELECT id, username, role, name, createdAt, updatedAt FROM User WHERE id = ?', [id]);
+    const users = await query<any[]>('SELECT id, username, role, name, gmail, createdAt, updatedAt FROM User WHERE id = ?', [id]);
 
     return NextResponse.json(users[0], { status: 201 });
   } catch (error) {
