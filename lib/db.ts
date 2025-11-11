@@ -28,6 +28,10 @@ async function connectDB() {
   }
 
   if (!cached.promise) {
+    if (!MONGODB_URI) {
+      throw new Error('Please define MONGODB_URI or DATABASE_URL in your .env file');
+    }
+
     const opts = {
       bufferCommands: false,
     };

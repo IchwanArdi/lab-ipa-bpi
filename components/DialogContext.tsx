@@ -30,7 +30,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     resolve: (value: boolean) => void;
   } | null>(null);
 
-  const showAlert = useCallback((message: string, options?: Omit<DialogOptions, 'onConfirm' | 'onCancel'>): Promise<void> => {
+  const showAlert = useCallback((message: string, options?: Omit<DialogOptions, 'onConfirm' | 'onCancel' | 'message'>): Promise<void> => {
     return new Promise((resolve) => {
       setDialog({
         type: 'alert',
@@ -49,7 +49,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const showConfirm = useCallback((message: string, options?: Omit<DialogOptions, 'onConfirm' | 'onCancel'>): Promise<boolean> => {
+  const showConfirm = useCallback((message: string, options?: Omit<DialogOptions, 'onConfirm' | 'onCancel' | 'message'>): Promise<boolean> => {
     return new Promise((resolve) => {
       setDialog({
         type: 'confirm',
