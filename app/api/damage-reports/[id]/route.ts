@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import DamageReport from '@/models/DamageReport';
 import { DamageReportStatus } from '@/types/database';
 import { z } from 'zod';
 
@@ -15,56 +16,48 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { id } = await params;
     const body = await request.json();
     const validatedData = updateReportSchema.parse(body);
 
-    await query('UPDATE DamageReport SET status = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [validatedData.status as DamageReportStatus, id]);
+    const report = await DamageReport.findByIdAndUpdate(id, { status: validatedData.status as DamageReportStatus }, { new: true })
+      .populate('userId', 'name username')
+      .populate('itemId');
 
-    // Get updated report with relations
-    const reports = await query<any[]>(
-      `SELECT 
-        d.id, d.userId, d.itemId, d.description as report_description, d.photoUrl, d.status, d.createdAt, d.updatedAt,
-        u.id as user_id, u.name as user_name, u.username as user_username,
-        i.id as item_id, i.code as item_code, i.name as item_name, i.category as item_category, 
-        i.stock as item_stock, i.\`condition\` as item_condition, i.description as item_description,
-        i.createdAt as item_createdAt, i.updatedAt as item_updatedAt
-      FROM DamageReport d
-      INNER JOIN User u ON d.userId = u.id
-      INNER JOIN Item i ON d.itemId = i.id
-      WHERE d.id = ?`,
-      [id]
-    );
+    if (!report) {
+      return NextResponse.json({ error: 'Laporan tidak ditemukan' }, { status: 404 });
+    }
 
-    const row = reports[0];
-    const report = {
-      id: row.id,
-      userId: row.userId,
-      itemId: row.itemId,
-      description: row.report_description,
-      photoUrl: row.photoUrl,
-      status: row.status,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+    return NextResponse.json({
+      id: report._id,
+      userId: report.userId,
+      itemId: report.itemId,
+      description: report.description,
+      photoUrl: report.photoUrl,
+      status: report.status,
+      createdAt: report.createdAt,
+      updatedAt: report.updatedAt,
       user: {
-        id: row.user_id,
-        name: row.user_name,
-        username: row.user_username,
+        id: typeof report.userId === 'object' && report.userId ? (report.userId as any)._id : report.userId,
+        name: typeof report.userId === 'object' && report.userId ? (report.userId as any).name : '',
+        username: typeof report.userId === 'object' && report.userId ? (report.userId as any).username : '',
       },
-      item: {
-        id: row.item_id,
-        code: row.item_code,
-        name: row.item_name,
-        category: row.item_category,
-        stock: row.item_stock,
-        condition: row.item_condition,
-        description: row.item_description,
-        createdAt: row.item_createdAt,
-        updatedAt: row.item_updatedAt,
-      },
-    };
-
-    return NextResponse.json(report);
+      item:
+        typeof report.itemId === 'object' && report.itemId
+          ? {
+              id: (report.itemId as any)._id,
+              code: (report.itemId as any).code,
+              name: (report.itemId as any).name,
+              category: (report.itemId as any).category,
+              stock: (report.itemId as any).stock,
+              condition: (report.itemId as any).condition,
+              description: (report.itemId as any).description,
+              createdAt: (report.itemId as any).createdAt,
+              updatedAt: (report.itemId as any).updatedAt,
+            }
+          : null,
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Data tidak valid', details: error.errors }, { status: 400 });

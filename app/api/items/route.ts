@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import Item from '@/models/Item';
 import { generateId } from '@/lib/utils';
 import { z } from 'zod';
 
@@ -15,7 +16,8 @@ const itemSchema = z.object({
 
 export async function GET() {
   try {
-    const items = await query<any[]>('SELECT * FROM Item ORDER BY createdAt DESC');
+    await connectDB();
+    const items = await Item.find().sort({ createdAt: -1 });
     return NextResponse.json(items);
   } catch (error) {
     return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 });
@@ -29,30 +31,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const body = await request.json();
     const validatedData = itemSchema.parse(body);
 
     // Check if code already exists
-    const existingItems = await query<any[]>('SELECT * FROM Item WHERE code = ?', [validatedData.code]);
+    const existingItem = await Item.findOne({ code: validatedData.code });
 
-    if (existingItems && existingItems.length > 0) {
+    if (existingItem) {
       return NextResponse.json({ error: 'Kode alat sudah ada' }, { status: 400 });
     }
 
     const id = generateId();
-    await query('INSERT INTO Item (id, code, name, category, stock, `condition`, description) VALUES (?, ?, ?, ?, ?, ?, ?)', [
-      id,
-      validatedData.code,
-      validatedData.name,
-      validatedData.category,
-      validatedData.stock,
-      validatedData.condition,
-      validatedData.description || null,
-    ]);
+    const item = await Item.create({
+      _id: id,
+      ...validatedData,
+    });
 
-    const item = await query<any[]>('SELECT * FROM Item WHERE id = ?', [id]);
-
-    return NextResponse.json(item[0], { status: 201 });
+    return NextResponse.json(item, { status: 201 });
   } catch (error) {
     console.error('Error creating item:', error);
     if (error instanceof z.ZodError) {

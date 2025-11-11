@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import Item from '@/models/Item';
 import { z } from 'zod';
 
 const itemSchema = z.object({
@@ -14,14 +15,15 @@ const itemSchema = z.object({
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await connectDB();
     const { id } = await params;
-    const items = await query<any[]>('SELECT * FROM Item WHERE id = ?', [id]);
+    const item = await Item.findById(id);
 
-    if (!items || items.length === 0) {
+    if (!item) {
       return NextResponse.json({ error: 'Alat tidak ditemukan' }, { status: 404 });
     }
 
-    return NextResponse.json(items[0]);
+    return NextResponse.json(item);
   } catch (error) {
     return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 });
   }
@@ -34,58 +36,27 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { id } = await params;
     const body = await request.json();
     const validatedData = itemSchema.parse(body);
 
     // Check if code already exists (if code is being updated)
     if (validatedData.code) {
-      const existingItems = await query<any[]>('SELECT * FROM Item WHERE code = ? AND id != ?', [validatedData.code, id]);
+      const existingItem = await Item.findOne({ code: validatedData.code, _id: { $ne: id } });
 
-      if (existingItems && existingItems.length > 0) {
+      if (existingItem) {
         return NextResponse.json({ error: 'Kode alat sudah ada' }, { status: 400 });
       }
     }
 
-    // Build update query dynamically
-    const updates: string[] = [];
-    const values: any[] = [];
+    const item = await Item.findByIdAndUpdate(id, validatedData, { new: true, runValidators: true });
 
-    if (validatedData.code !== undefined) {
-      updates.push('code = ?');
-      values.push(validatedData.code);
-    }
-    if (validatedData.name !== undefined) {
-      updates.push('name = ?');
-      values.push(validatedData.name);
-    }
-    if (validatedData.category !== undefined) {
-      updates.push('category = ?');
-      values.push(validatedData.category);
-    }
-    if (validatedData.stock !== undefined) {
-      updates.push('stock = ?');
-      values.push(validatedData.stock);
-    }
-    if (validatedData.condition !== undefined) {
-      updates.push('`condition` = ?');
-      values.push(validatedData.condition);
-    }
-    if (validatedData.description !== undefined) {
-      updates.push('description = ?');
-      values.push(validatedData.description);
+    if (!item) {
+      return NextResponse.json({ error: 'Alat tidak ditemukan' }, { status: 404 });
     }
 
-    if (updates.length === 0) {
-      return NextResponse.json({ error: 'Tidak ada data untuk diupdate' }, { status: 400 });
-    }
-
-    values.push(id);
-    await query(`UPDATE Item SET ${updates.join(', ')}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`, values);
-
-    const items = await query<any[]>('SELECT * FROM Item WHERE id = ?', [id]);
-
-    return NextResponse.json(items[0]);
+    return NextResponse.json(item);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Data tidak valid', details: error.errors }, { status: 400 });
@@ -101,8 +72,13 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { id } = await params;
-    await query('DELETE FROM Item WHERE id = ?', [id]);
+    const item = await Item.findByIdAndDelete(id);
+
+    if (!item) {
+      return NextResponse.json({ error: 'Alat tidak ditemukan' }, { status: 404 });
+    }
 
     return NextResponse.json({ message: 'Alat berhasil dihapus' });
   } catch (error) {

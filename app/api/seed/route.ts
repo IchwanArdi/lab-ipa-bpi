@@ -1,44 +1,61 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import User from '@/models/User';
 import { generateId } from '@/lib/utils';
 import bcrypt from 'bcryptjs';
-import { UserRole } from '@/types/database';
 
 export async function POST() {
   try {
+    await connectDB();
+
     // Hash password
     const hashedPassword = await bcrypt.hash('12345678', 10);
 
     // Check if admin already exists
-    const existingAdmins = await query<any[]>('SELECT * FROM User WHERE username = ?', ['admin']);
+    let admin = await User.findOne({ username: 'admin' });
 
-    let admin;
-    if (existingAdmins && existingAdmins.length > 0) {
-      admin = existingAdmins[0];
-    } else {
+    if (!admin) {
       const adminId = generateId();
-      await query('INSERT INTO User (id, username, password, role, name) VALUES (?, ?, ?, ?, ?)', [adminId, 'admin', hashedPassword, UserRole.ADMIN, 'Administrator']);
-      const admins = await query<any[]>('SELECT * FROM User WHERE id = ?', [adminId]);
-      admin = admins[0];
+      admin = await User.create({
+        _id: adminId,
+        username: 'admin',
+        password: hashedPassword,
+        role: 'ADMIN',
+        name: 'Administrator',
+      });
     }
 
     // Check if guru already exists
-    const existingGurus = await query<any[]>('SELECT * FROM User WHERE username = ?', ['guru1']);
+    let guru = await User.findOne({ username: 'guru1' });
 
-    let guru;
-    if (existingGurus && existingGurus.length > 0) {
-      guru = existingGurus[0];
-    } else {
+    if (!guru) {
       const guruId = generateId();
-      await query('INSERT INTO User (id, username, password, role, name) VALUES (?, ?, ?, ?, ?)', [guruId, 'guru1', hashedPassword, UserRole.GURU, 'Guru IPA 1']);
-      const gurus = await query<any[]>('SELECT * FROM User WHERE id = ?', [guruId]);
-      guru = gurus[0];
+      guru = await User.create({
+        _id: guruId,
+        username: 'guru1',
+        password: hashedPassword,
+        role: 'GURU',
+        name: 'Guru IPA 1',
+      });
     }
 
     return NextResponse.json({
       success: true,
       message: 'Seed berhasil!',
-      users: { admin, guru },
+      users: {
+        admin: {
+          id: admin._id,
+          username: admin.username,
+          role: admin.role,
+          name: admin.name,
+        },
+        guru: {
+          id: guru._id,
+          username: guru.username,
+          role: guru.role,
+          name: guru.name,
+        },
+      },
     });
   } catch (error: any) {
     return NextResponse.json(

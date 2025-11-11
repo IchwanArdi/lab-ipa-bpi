@@ -1,10 +1,12 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { query } from './db';
+import connectDB from './db';
+import User from '@/models/User';
 import bcrypt from 'bcryptjs';
 import { UserRole } from '@/types/database';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     Credentials({
       credentials: {
@@ -16,27 +18,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        const users = await query<any[]>('SELECT * FROM User WHERE username = ?', [credentials.username as string]);
+        try {
+          await connectDB();
+          const user = await User.findOne({ username: credentials.username as string });
 
-        if (!users || users.length === 0) {
+          if (!user) {
+            return null;
+          }
+
+          const isPasswordValid = await bcrypt.compare(credentials.password as string, user.password);
+
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          return {
+            id: user._id.toString(),
+            username: user.username,
+            name: user.name,
+            role: user.role,
+            profileImage: user.profileImage || null,
+          };
+        } catch (error) {
+          console.error('Auth error:', error);
           return null;
         }
-
-        const user = users[0];
-
-        const isPasswordValid = await bcrypt.compare(credentials.password as string, user.password);
-
-        if (!isPasswordValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          username: user.username,
-          name: user.name,
-          role: user.role,
-          profileImage: user.profileImage || null,
-        };
       },
     }),
   ],
@@ -48,10 +54,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = user.role;
         token.profileImage = user.profileImage || null;
       } else if (token.id) {
-        // Refresh profileImage from database on each request
-        const users = await query<any[]>('SELECT profileImage FROM User WHERE id = ?', [token.id as string]);
-        if (users && users.length > 0) {
-          token.profileImage = users[0].profileImage || null;
+        try {
+          // Refresh profileImage from database on each request
+          await connectDB();
+          const userDoc = await User.findById(token.id as string);
+          if (userDoc) {
+            token.profileImage = userDoc.profileImage || null;
+          }
+        } catch (error) {
+          console.error('Error refreshing user profile:', error);
         }
       }
       return token;
@@ -72,4 +83,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: 'jwt',
   },
+  debug: process.env.NODE_ENV === 'development',
 });

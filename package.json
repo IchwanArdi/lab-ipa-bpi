@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:setup": "node scripts/setup-db.js",
-    "db:optimize": "node scripts/optimize-indexes.js"
+    "seed": "curl -X POST http://localhost:3000/api/seed",
+    "clean": "rm -rf .next node_modules/.cache",
+    "clean:win": "if exist .next rmdir /s /q .next && if exist node_modules\\.cache rmdir /s /q node_modules\\.cache"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -17,7 +18,7 @@
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.553.0",
-    "mysql2": "^3.11.5",
+    "mongoose": "^8.19.3",
     "next": "16.0.1",
     "next-auth": "^5.0.0-beta.30",
     "react": "19.2.0",

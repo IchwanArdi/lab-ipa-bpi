@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import User from '@/models/User';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 
@@ -18,13 +19,23 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const users = await query<any[]>('SELECT id, username, role, name, gmail, profileImage, createdAt, updatedAt FROM User WHERE id = ?', [session.user.id]);
+    await connectDB();
+    const user = await User.findById(session.user.id).select('_id username role name gmail profileImage createdAt updatedAt');
 
-    if (!users || users.length === 0) {
+    if (!user) {
       return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
     }
 
-    return NextResponse.json(users[0]);
+    return NextResponse.json({
+      id: user._id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+      gmail: user.gmail,
+      profileImage: user.profileImage,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
   } catch (error) {
     console.error('Error fetching profile:', error);
     return NextResponse.json({ error: 'Gagal mengambil data profile' }, { status: 500 });
@@ -38,44 +49,49 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const body = await request.json();
     const validatedData = updateProfileSchema.parse(body);
 
-    // Build update query dynamically
-    const updates: string[] = [];
-    const values: any[] = [];
+    // Build update object
+    const updateData: any = {};
 
     if (validatedData.name !== undefined) {
-      updates.push('name = ?');
-      values.push(validatedData.name);
+      updateData.name = validatedData.name;
     }
 
     if (validatedData.password && validatedData.password.trim() !== '') {
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      updates.push('password = ?');
-      values.push(hashedPassword);
+      updateData.password = await bcrypt.hash(validatedData.password, 10);
     }
 
     if (validatedData.profileImage !== undefined) {
-      updates.push('profileImage = ?');
-      values.push(validatedData.profileImage || null);
+      updateData.profileImage = validatedData.profileImage || null;
     }
 
     if (validatedData.gmail !== undefined) {
-      updates.push('gmail = ?');
-      values.push(validatedData.gmail && validatedData.gmail.trim() !== '' ? validatedData.gmail : null);
+      updateData.gmail = validatedData.gmail && validatedData.gmail.trim() !== '' ? validatedData.gmail : null;
     }
 
-    if (updates.length === 0) {
+    if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Tidak ada data untuk diupdate' }, { status: 400 });
     }
 
-    values.push(session.user.id);
-    await query(`UPDATE User SET ${updates.join(', ')}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`, values);
+    const user = await User.findByIdAndUpdate(session.user.id, updateData, { new: true, runValidators: true });
 
-    const users = await query<any[]>('SELECT id, username, role, name, gmail, profileImage, createdAt, updatedAt FROM User WHERE id = ?', [session.user.id]);
+    if (!user) {
+      return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
+    }
 
-    return NextResponse.json(users[0]);
+    return NextResponse.json({
+      id: user._id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+      gmail: user.gmail,
+      profileImage: user.profileImage,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Data tidak valid', details: error.errors }, { status: 400 });

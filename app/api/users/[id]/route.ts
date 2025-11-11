@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import User from '@/models/User';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { UserRole } from '@/types/database';
@@ -19,51 +20,54 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { id } = await params;
     const body = await request.json();
     const validatedData = updateUserSchema.parse(body);
 
     // Check if username already exists (if username is being updated)
     if (validatedData.username) {
-      const existingUsers = await query<any[]>('SELECT * FROM User WHERE username = ? AND id != ?', [validatedData.username, id]);
+      const existingUser = await User.findOne({ username: validatedData.username, _id: { $ne: id } });
 
-      if (existingUsers && existingUsers.length > 0) {
+      if (existingUser) {
         return NextResponse.json({ error: 'Username sudah ada' }, { status: 400 });
       }
     }
 
-    // Build update query dynamically
-    const updates: string[] = [];
-    const values: any[] = [];
-
+    // Build update object
+    const updateData: any = {};
     if (validatedData.username !== undefined) {
-      updates.push('username = ?');
-      values.push(validatedData.username);
+      updateData.username = validatedData.username;
     }
     if (validatedData.password !== undefined) {
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      updates.push('password = ?');
-      values.push(hashedPassword);
+      updateData.password = await bcrypt.hash(validatedData.password, 10);
     }
     if (validatedData.role !== undefined) {
-      updates.push('role = ?');
-      values.push(validatedData.role as UserRole);
+      updateData.role = validatedData.role as UserRole;
     }
     if (validatedData.name !== undefined) {
-      updates.push('name = ?');
-      values.push(validatedData.name);
+      updateData.name = validatedData.name;
     }
 
-    if (updates.length === 0) {
+    if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Tidak ada data untuk diupdate' }, { status: 400 });
     }
 
-    values.push(id);
-    await query(`UPDATE User SET ${updates.join(', ')}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`, values);
+    const user = await User.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
 
-    const users = await query<any[]>('SELECT id, username, role, name, gmail, createdAt, updatedAt FROM User WHERE id = ?', [id]);
+    if (!user) {
+      return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
+    }
 
-    return NextResponse.json(users[0]);
+    return NextResponse.json({
+      id: user._id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+      gmail: user.gmail,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Data tidak valid', details: error.errors }, { status: 400 });
@@ -79,6 +83,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { id } = await params;
 
     // Prevent deleting own account
@@ -86,7 +91,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: 'Tidak dapat menghapus akun sendiri' }, { status: 400 });
     }
 
-    await query('DELETE FROM User WHERE id = ?', [id]);
+    const user = await User.findByIdAndDelete(id);
+
+    if (!user) {
+      return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
+    }
 
     return NextResponse.json({ message: 'User berhasil dihapus' });
   } catch (error) {

@@ -8,7 +8,7 @@ Sistem informasi laboratorium IPA untuk Sekolah BPI Bandung. Website ini digunak
 - **Language:** TypeScript
 - **Styling:** TailwindCSS
 - **Authentication:** NextAuth.js v5
-- **Database:** MySQL (dengan mysql2)
+- **Database:** MongoDB Atlas (dengan Mongoose)
 - **Validation:** Zod
 
 ## Fitur
@@ -39,36 +39,13 @@ Sistem informasi laboratorium IPA untuk Sekolah BPI Bandung. Website ini digunak
 npm install
 ```
 
-### 2. Install & Setup MySQL
+### 2. Setup Environment Variables
 
-**Install MySQL Server** (jika belum):
-
-- Windows: Download dari [MySQL Official](https://dev.mysql.com/downloads/mysql/) atau gunakan XAMPP/WAMP
-- Mac: `brew install mysql`
-- Linux: `sudo apt-get install mysql-server`
-
-**Buat Database:**
-
-```sql
-CREATE DATABASE bpi_lab;
-```
-
-Atau via command line:
-
-```bash
-mysql -u root -p -e "CREATE DATABASE bpi_lab;"
-```
-
-### 3. Setup Environment Variables
-
-Buat file `.env` di root project dengan isi:
+Buat file `.env.local` di root project dengan isi:
 
 ```env
-# Database Configuration
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=
-DB_NAME=bpi_lab
+# MongoDB Atlas Connection String
+MONGODB_URI=mongodb+srv://ichwanpwt22_db_user:cP0AguBQugICDU7R@labipabpi.wukd9uc.mongodb.net/?appName=LabIpaBpi
 
 # NextAuth Configuration
 NEXTAUTH_SECRET="your-secret-key-change-this-in-production"
@@ -77,39 +54,29 @@ NEXTAUTH_URL="http://localhost:3000"
 
 **Catatan:**
 
-- `DB_HOST`: Host MySQL (default: localhost)
-- `DB_USER`: Username MySQL (default: root)
-- `DB_PASSWORD`: Password MySQL (kosongkan jika tidak ada password)
-- `DB_NAME`: Nama database (default: bpi_lab)
+- `MONGODB_URI`: Connection string MongoDB Atlas (sudah disediakan)
 - Generate `NEXTAUTH_SECRET` dengan: `openssl rand -base64 32`
+- `NEXTAUTH_URL`: URL aplikasi (untuk production, ganti dengan domain Anda)
 
-**Alternatif:** Anda juga bisa menggunakan format `DATABASE_URL`:
+### 3. Seed Database (Optional)
 
-```env
-DATABASE_URL="mysql://root:password@localhost:3306/bpi_lab"
-```
-
-### 4. Setup Database Schema
-
-Jalankan script setup untuk membuat database dan tabel:
+Untuk membuat user default (admin dan guru), jalankan:
 
 ```bash
-npm run db:setup
+# Pastikan server sudah running
+npm run dev
+
+# Di terminal lain, jalankan:
+npm run seed
 ```
 
-Script ini akan:
-
-- Membuat database `bpi_lab` (jika belum ada)
-- Membuat semua tabel (User, Item, Loan, DamageReport, Notification)
-- Membuat user default (admin dan guru)
-
-**Alternatif:** Jika ingin manual, jalankan SQL script:
+Atau manual via API:
 
 ```bash
-mysql -u root -p bpi_lab < database/schema.sql
+curl -X POST http://localhost:3000/api/seed
 ```
 
-### 5. Jalankan Development Server
+### 4. Jalankan Development Server
 
 ```bash
 npm run dev
@@ -127,7 +94,7 @@ app/
 └── layout.tsx        # Root layout
 
 components/           # Komponen reusable
-database/             # SQL schema file
+models/               # Mongoose models
 lib/                  # Utilities (auth, db)
 types/                # TypeScript type definitions
 public/               # Static files & uploads
@@ -135,18 +102,15 @@ public/               # Static files & uploads
 
 ## 🔄 Database Configuration
 
-Aplikasi menggunakan MySQL sebagai database. Untuk development, pastikan:
+Aplikasi menggunakan MongoDB Atlas sebagai database. Connection string sudah disediakan di `.env.local`.
 
-- MySQL server sudah running
-- Database sudah dibuat
-- `DATABASE_URL` di `.env` sudah dikonfigurasi dengan benar
-- Semua tabel sudah dibuat dengan menjalankan `database/schema.sql`
+**Collections:**
 
-Format `DATABASE_URL`:
-
-```
-mysql://username:password@host:port/database_name
-```
+- `users` - Data pengguna (admin dan guru)
+- `items` - Data inventaris alat
+- `loans` - Data peminjaman alat
+- `damagereports` - Data laporan kerusakan
+- `notifications` - Data notifikasi
 
 ## 📝 Scripts
 
@@ -154,6 +118,7 @@ mysql://username:password@host:port/database_name
 - `npm run build` - Build untuk production
 - `npm run start` - Jalankan production server
 - `npm run lint` - Run ESLint
+- `npm run seed` - Seed database dengan user default
 
 ## 🔒 Security Notes
 
@@ -161,7 +126,7 @@ mysql://username:password@host:port/database_name
 - Route protection dengan NextAuth middleware
 - Role-based access control (RBAC)
 - File upload validation
-- SQL injection protection dengan prepared statements
+- MongoDB injection protection dengan Mongoose
 
 ## 📄 License
 

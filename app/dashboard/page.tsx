@@ -1,83 +1,84 @@
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
 import { auth } from '@/lib/auth';
+import Item from '@/models/Item';
+import Loan from '@/models/Loan';
+import DamageReport from '@/models/DamageReport';
 import Card from '@/components/Card';
 import RemindersList from '@/components/RemindersList';
 import AnalyticsChartsWrapper from '@/components/AnalyticsChartsWrapper';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { Package, ClipboardList, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Package, ClipboardList, AlertTriangle, CheckCircle } from 'lucide-react';
 
 export default async function DashboardPage() {
   const session = await auth();
   const userRole = session?.user?.role;
   const userId = session?.user?.id;
 
+  await connectDB();
+
   // Query berbeda untuk ADMIN vs GURU
-  let totalItemsQuery = 'SELECT COUNT(*) as count FROM Item';
-  let activeLoansQuery = 'SELECT COUNT(*) as count FROM Loan WHERE status IN (?, ?, ?)';
-  let activeLoansParams: any[] = ['MENUNGGU', 'DISETUJUI', 'DIPINJAM'];
-  let pendingReportsQuery = 'SELECT COUNT(*) as count FROM DamageReport WHERE status = ?';
-  let pendingReportsParams: any[] = ['PENDING'];
-  let recentLoansQuery = `SELECT l.*, u.id as user_id, u.name as user_name, u.username as user_username, i.id as item_id, i.code as item_code, i.name as item_name, i.category as item_category, i.stock as item_stock, i.\`condition\` as item_condition, i.description as item_description, i.createdAt as item_createdAt, i.updatedAt as item_updatedAt FROM Loan l INNER JOIN User u ON l.userId = u.id INNER JOIN Item i ON l.itemId = i.id`;
+  const totalItems = await Item.countDocuments();
 
-  // Filter untuk GURU
+  const activeLoansQuery: any = {
+    status: { $in: ['MENUNGGU', 'DISETUJUI', 'DIPINJAM'] },
+  };
   if (userRole === 'GURU') {
-    // Perbaiki: query COUNT tidak pakai alias, langsung userId
-    activeLoansQuery += ' AND userId = ?';
-    activeLoansParams.push(userId);
-    // Untuk GURU, query pending reports perlu join dengan User
-    pendingReportsQuery = 'SELECT COUNT(*) as count FROM DamageReport WHERE status = ? AND userId = ?';
-    pendingReportsParams = ['PENDING', userId];
-    recentLoansQuery += ' WHERE l.userId = ?';
+    activeLoansQuery.userId = userId;
   }
+  const activeLoans = await Loan.countDocuments(activeLoansQuery);
 
-  recentLoansQuery += ' ORDER BY l.createdAt DESC LIMIT 5';
+  const pendingReportsQuery: any = {
+    status: 'PENDING',
+  };
+  if (userRole === 'GURU') {
+    pendingReportsQuery.userId = userId;
+  }
+  const pendingReports = await DamageReport.countDocuments(pendingReportsQuery);
 
-  const [totalItemsResult, activeLoansResult, pendingReportsResult, recentLoansResult] = await Promise.all([
-    query<any[]>(totalItemsQuery),
-    query<any[]>(activeLoansQuery, activeLoansParams),
-    query<any[]>(pendingReportsQuery, pendingReportsParams),
-    query<any[]>(recentLoansQuery, userRole === 'GURU' ? [userId] : []),
-  ]);
-
-  const totalItems = totalItemsResult[0]?.count || 0;
-  const activeLoans = activeLoansResult[0]?.count || 0;
-  const pendingReports = pendingReportsResult[0]?.count || 0;
+  // Recent loans query
+  const recentLoansQuery: any = {};
+  if (userRole === 'GURU') {
+    recentLoansQuery.userId = userId;
+  }
+  const recentLoansData = await Loan.find(recentLoansQuery).populate('userId', 'name username').populate('itemId').sort({ createdAt: -1 }).limit(5);
 
   // Query tambahan untuk GURU
   let availableItemsCount = 0;
   if (userRole === 'GURU') {
-    const availableItemsResult = await query<any[]>('SELECT COUNT(*) as count FROM Item WHERE stock > 0 AND `condition` = ?', ['BAIK']);
-    availableItemsCount = availableItemsResult[0]?.count || 0;
+    availableItemsCount = await Item.countDocuments({ stock: { $gt: 0 }, condition: 'BAIK' });
   }
 
-  const recentLoans = recentLoansResult.map((row: any) => ({
-    id: row.id,
-    userId: row.userId,
-    itemId: row.itemId,
-    quantity: row.quantity,
-    status: row.status,
-    borrowDate: row.borrowDate,
-    returnDate: row.returnDate,
-    notes: row.notes,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+  const recentLoans = recentLoansData.map((loan) => ({
+    id: loan._id.toString(),
+    userId: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any)._id.toString() : loan.userId.toString(),
+    itemId: typeof loan.itemId === 'object' && loan.itemId ? (loan.itemId as any)._id.toString() : loan.itemId.toString(),
+    quantity: loan.quantity,
+    status: loan.status,
+    borrowDate: loan.borrowDate,
+    returnDate: loan.returnDate,
+    notes: loan.notes,
+    createdAt: loan.createdAt,
+    updatedAt: loan.updatedAt,
     user: {
-      id: row.user_id,
-      name: row.user_name,
-      username: row.user_username,
+      id: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any)._id.toString() : loan.userId.toString(),
+      name: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any).name : '',
+      username: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any).username : '',
     },
-    item: {
-      id: row.item_id,
-      code: row.item_code,
-      name: row.item_name,
-      category: row.item_category,
-      stock: row.item_stock,
-      condition: row.item_condition,
-      description: row.item_description,
-      createdAt: row.item_createdAt,
-      updatedAt: row.item_updatedAt,
-    },
+    item:
+      typeof loan.itemId === 'object' && loan.itemId
+        ? {
+            id: (loan.itemId as any)._id.toString(),
+            code: (loan.itemId as any).code,
+            name: (loan.itemId as any).name,
+            category: (loan.itemId as any).category,
+            stock: (loan.itemId as any).stock,
+            condition: (loan.itemId as any).condition,
+            description: (loan.itemId as any).description,
+            createdAt: (loan.itemId as any).createdAt,
+            updatedAt: (loan.itemId as any).updatedAt,
+          }
+        : null,
   }));
 
   return (
@@ -221,7 +222,7 @@ export default async function DashboardPage() {
                     </td>
                     {userRole === 'ADMIN' && <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden sm:table-cell">{loan.user.name}</td>}
                     <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 font-medium">
-                      <div className="truncate max-w-[150px] sm:max-w-none">{loan.item.name}</div>
+                      <div className="truncate max-w-[150px] sm:max-w-none">{loan.item?.name}</div>
                       {userRole === 'ADMIN' && <div className="sm:hidden text-xs text-gray-500 mt-1">{loan.user.name}</div>}
                     </td>
                     <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden md:table-cell">{loan.quantity}</td>

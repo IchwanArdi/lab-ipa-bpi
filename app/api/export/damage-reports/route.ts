@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import DamageReport from '@/models/DamageReport';
 import * as XLSX from 'xlsx';
 
 export async function GET(request: NextRequest) {
@@ -10,49 +11,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    let sql = `
-      SELECT 
-        d.id,
-        d.description,
-        d.photoUrl,
-        d.status,
-        d.createdAt,
-        u.name as userName,
-        i.code as itemCode,
-        i.name as itemName,
-        i.category as itemCategory
-      FROM DamageReport d
-      INNER JOIN User u ON d.userId = u.id
-      INNER JOIN Item i ON d.itemId = i.id
-      WHERE 1=1
-    `;
-    const params: any[] = [];
-
+    const query: any = {};
     if (session.user.role === 'GURU') {
-      sql += ' AND d.userId = ?';
-      params.push(session.user.id);
+      query.userId = session.user.id;
     }
     if (status) {
-      sql += ' AND d.status = ?';
-      params.push(status);
+      query.status = status;
     }
 
-    sql += ' ORDER BY d.createdAt DESC';
-
-    const reports = await query<any[]>(sql, params);
+    const reports = await DamageReport.find(query)
+      .populate('userId', 'name')
+      .populate('itemId', 'code name category')
+      .sort({ createdAt: -1 });
 
     // Create workbook
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(
       reports.map((report) => ({
         Tanggal: new Date(report.createdAt).toLocaleDateString('id-ID'),
-        Pelapor: report.userName,
-        'Kode Alat': report.itemCode,
-        'Nama Alat': report.itemName,
-        Kategori: report.itemCategory,
+        Pelapor: typeof report.userId === 'object' && report.userId ? (report.userId as any).name : '',
+        'Kode Alat': typeof report.itemId === 'object' && report.itemId ? (report.itemId as any).code : '',
+        'Nama Alat': typeof report.itemId === 'object' && report.itemId ? (report.itemId as any).name : '',
+        Kategori: typeof report.itemId === 'object' && report.itemId ? (report.itemId as any).category : '',
         Deskripsi: report.description,
         Status: report.status === 'PENDING' ? 'Pending' : 'Selesai',
         'Ada Foto': report.photoUrl ? 'Ya' : 'Tidak',

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import Loan from '@/models/Loan';
+import Item from '@/models/Item';
+import DamageReport from '@/models/DamageReport';
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,124 +12,224 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period') || 'month'; // month, year
+    const period = searchParams.get('period') || 'month';
     const months = parseInt(searchParams.get('months') || '6');
 
-    // Loan trends (last N months)
-    const loanTrendsRaw = await query<any[]>(
-      `
-      SELECT 
-        DATE_FORMAT(createdAt, '%Y-%m') as month,
-        COUNT(*) as count,
-        SUM(CASE WHEN status = 'DIKEMBALIKAN' THEN 1 ELSE 0 END) as returned
-      FROM Loan
-      WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? MONTH)
-      GROUP BY DATE_FORMAT(createdAt, '%Y-%m')
-      ORDER BY month ASC
-    `,
-      [months]
-    );
-    const loanTrends = loanTrendsRaw.map((item: any) => ({
-      month: item.month,
-      count: Number(item.count) || 0,
-      returned: Number(item.returned) || 0,
+    // Calculate date range
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+
+    // Loan trends (last N months) - using aggregation
+    const loanTrendsAgg = await Loan.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m', date: '$createdAt' },
+          },
+          count: { $sum: 1 },
+          returned: {
+            $sum: { $cond: [{ $eq: ['$status', 'DIKEMBALIKAN'] }, 1, 0] },
+          },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    const loanTrends = loanTrendsAgg.map((item: any) => ({
+      month: item._id,
+      count: item.count || 0,
+      returned: item.returned || 0,
     }));
 
     // Top borrowed items
-    const topItemsRaw = await query<any[]>(`
-      SELECT 
-        i.id,
-        i.name,
-        i.code,
-        i.category,
-        COUNT(l.id) as borrowCount,
-        SUM(l.quantity) as totalQuantity
-      FROM Item i
-      INNER JOIN Loan l ON i.id = l.itemId
-      WHERE l.status IN ('DISETUJUI', 'DIPINJAM', 'DIKEMBALIKAN')
-      GROUP BY i.id, i.name, i.code, i.category
-      ORDER BY borrowCount DESC
-      LIMIT 10
-    `);
-    const topItems = topItemsRaw.map((item: any) => ({
-      id: item.id,
-      name: item.name || '',
-      code: item.code || '',
-      category: item.category || '',
-      borrowCount: Number(item.borrowCount) || 0,
-      totalQuantity: Number(item.totalQuantity) || 0,
+    const topItemsAgg = await Loan.aggregate([
+      {
+        $match: {
+          status: { $in: ['DISETUJUI', 'DIPINJAM', 'DIKEMBALIKAN'] },
+        },
+      },
+      {
+        $group: {
+          _id: '$itemId',
+          borrowCount: { $sum: 1 },
+          totalQuantity: { $sum: '$quantity' },
+        },
+      },
+      {
+        $sort: { borrowCount: -1 },
+      },
+      {
+        $limit: 10,
+      },
+      {
+        $lookup: {
+          from: 'items',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'item',
+        },
+      },
+      {
+        $unwind: '$item',
+      },
+    ]);
+
+    const topItems = topItemsAgg.map((item: any) => ({
+      id: item._id,
+      name: item.item.name || '',
+      code: item.item.code || '',
+      category: item.item.category || '',
+      borrowCount: item.borrowCount || 0,
+      totalQuantity: item.totalQuantity || 0,
     }));
 
     // Category statistics
-    const categoryStatsRaw = await query<any[]>(`
-      SELECT 
-        i.category,
-        COUNT(DISTINCT l.id) as loanCount,
-        COUNT(DISTINCT i.id) as itemCount,
-        SUM(CASE WHEN l.status = 'DIKEMBALIKAN' THEN 1 ELSE 0 END) as returnedCount
-      FROM Item i
-      LEFT JOIN Loan l ON i.id = l.itemId
-      GROUP BY i.category
-      ORDER BY loanCount DESC
-    `);
-    const categoryStats = categoryStatsRaw.map((item: any) => ({
-      category: item.category || '',
-      loanCount: Number(item.loanCount) || 0,
-      itemCount: Number(item.itemCount) || 0,
-      returnedCount: Number(item.returnedCount) || 0,
+    const categoryStatsAgg = await Loan.aggregate([
+      {
+        $match: {
+          status: { $in: ['DISETUJUI', 'DIPINJAM', 'DIKEMBALIKAN'] },
+        },
+      },
+      {
+        $lookup: {
+          from: 'items',
+          localField: 'itemId',
+          foreignField: '_id',
+          as: 'item',
+        },
+      },
+      {
+        $unwind: '$item',
+      },
+      {
+        $group: {
+          _id: '$item.category',
+          loanCount: { $sum: 1 },
+          returnedCount: {
+            $sum: { $cond: [{ $eq: ['$status', 'DIKEMBALIKAN'] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    const itemCountsByCategory = await Item.aggregate([
+      {
+        $group: {
+          _id: '$category',
+          itemCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const categoryMap = new Map();
+    itemCountsByCategory.forEach((item: any) => {
+      categoryMap.set(item._id, item.itemCount);
+    });
+
+    const categoryStats = categoryStatsAgg.map((item: any) => ({
+      category: item._id || '',
+      loanCount: item.loanCount || 0,
+      itemCount: categoryMap.get(item._id) || 0,
+      returnedCount: item.returnedCount || 0,
     }));
 
     // Status distribution
-    const statusDistributionRaw = await query<any[]>(`
-      SELECT 
-        status,
-        COUNT(*) as count
-      FROM Loan
-      GROUP BY status
-    `);
-    const statusDistribution = statusDistributionRaw.map((item: any) => ({
-      status: item.status || '',
-      count: Number(item.count) || 0,
+    const statusDistributionAgg = await Loan.aggregate([
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const statusDistribution = statusDistributionAgg.map((item: any) => ({
+      status: item._id || '',
+      count: item.count || 0,
     }));
 
     // Monthly loan count (detailed)
-    const monthlyLoansRaw = await query<any[]>(
-      `
-      SELECT 
-        DATE_FORMAT(createdAt, '%Y-%m') as month,
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'MENUNGGU' THEN 1 ELSE 0 END) as pending,
-        SUM(CASE WHEN status = 'DISETUJUI' THEN 1 ELSE 0 END) as approved,
-        SUM(CASE WHEN status = 'DIPINJAM' THEN 1 ELSE 0 END) as borrowed,
-        SUM(CASE WHEN status = 'DIKEMBALIKAN' THEN 1 ELSE 0 END) as returned
-      FROM Loan
-      WHERE createdAt >= DATE_SUB(NOW(), INTERVAL ? MONTH)
-      GROUP BY DATE_FORMAT(createdAt, '%Y-%m')
-      ORDER BY month ASC
-    `,
-      [months]
-    );
-    const monthlyLoans = monthlyLoansRaw.map((item: any) => ({
-      month: item.month || '',
-      total: Number(item.total) || 0,
-      pending: Number(item.pending) || 0,
-      approved: Number(item.approved) || 0,
-      borrowed: Number(item.borrowed) || 0,
-      returned: Number(item.returned) || 0,
+    const monthlyLoansAgg = await Loan.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m', date: '$createdAt' },
+          },
+          total: { $sum: 1 },
+          pending: {
+            $sum: { $cond: [{ $eq: ['$status', 'MENUNGGU'] }, 1, 0] },
+          },
+          approved: {
+            $sum: { $cond: [{ $eq: ['$status', 'DISETUJUI'] }, 1, 0] },
+          },
+          borrowed: {
+            $sum: { $cond: [{ $eq: ['$status', 'DIPINJAM'] }, 1, 0] },
+          },
+          returned: {
+            $sum: { $cond: [{ $eq: ['$status', 'DIKEMBALIKAN'] }, 1, 0] },
+          },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    const monthlyLoans = monthlyLoansAgg.map((item: any) => ({
+      month: item._id || '',
+      total: item.total || 0,
+      pending: item.pending || 0,
+      approved: item.approved || 0,
+      borrowed: item.borrowed || 0,
+      returned: item.returned || 0,
     }));
 
     // Damage reports by category
-    const damageByCategory = await query<any[]>(`
-      SELECT 
-        i.category,
-        COUNT(d.id) as reportCount,
-        SUM(CASE WHEN d.status = 'PENDING' THEN 1 ELSE 0 END) as pendingCount
-      FROM DamageReport d
-      INNER JOIN Item i ON d.itemId = i.id
-      GROUP BY i.category
-      ORDER BY reportCount DESC
-    `);
+    const damageByCategoryAgg = await DamageReport.aggregate([
+      {
+        $lookup: {
+          from: 'items',
+          localField: 'itemId',
+          foreignField: '_id',
+          as: 'item',
+        },
+      },
+      {
+        $unwind: '$item',
+      },
+      {
+        $group: {
+          _id: '$item.category',
+          reportCount: { $sum: 1 },
+          pendingCount: {
+            $sum: { $cond: [{ $eq: ['$status', 'PENDING'] }, 1, 0] },
+          },
+        },
+      },
+      {
+        $sort: { reportCount: -1 },
+      },
+    ]);
+
+    const damageByCategory = damageByCategoryAgg.map((item: any) => ({
+      category: item._id || '',
+      reportCount: item.reportCount || 0,
+      pendingCount: item.pendingCount || 0,
+    }));
 
     return NextResponse.json({
       loanTrends,

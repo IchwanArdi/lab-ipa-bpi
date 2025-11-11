@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import User from '@/models/User';
 import { generateId } from '@/lib/utils';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
@@ -20,9 +21,21 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const users = await query<any[]>('SELECT id, username, role, name, gmail, createdAt, updatedAt FROM User ORDER BY createdAt DESC');
+    await connectDB();
+    const users = await User.find().select('_id username role name gmail createdAt updatedAt').sort({ createdAt: -1 });
 
-    return NextResponse.json(users);
+    // Transform _id to id for compatibility
+    const formattedUsers = users.map((user) => ({
+      id: user._id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+      gmail: user.gmail,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    }));
+
+    return NextResponse.json(formattedUsers);
   } catch (error) {
     return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 });
   }
@@ -35,6 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const body = await request.json();
     const validatedData = userSchema.parse(body);
 
@@ -43,20 +57,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if username already exists
-    const existingUsers = await query<any[]>('SELECT * FROM User WHERE username = ?', [validatedData.username]);
+    const existingUser = await User.findOne({ username: validatedData.username });
 
-    if (existingUsers && existingUsers.length > 0) {
+    if (existingUser) {
       return NextResponse.json({ error: 'Username sudah ada' }, { status: 400 });
     }
 
     const hashedPassword = await bcrypt.hash(validatedData.password, 10);
     const id = generateId();
 
-    await query('INSERT INTO User (id, username, password, role, name) VALUES (?, ?, ?, ?, ?)', [id, validatedData.username, hashedPassword, validatedData.role as UserRole, validatedData.name]);
+    const user = await User.create({
+      _id: id,
+      username: validatedData.username,
+      password: hashedPassword,
+      role: validatedData.role as UserRole,
+      name: validatedData.name,
+    });
 
-    const users = await query<any[]>('SELECT id, username, role, name, gmail, createdAt, updatedAt FROM User WHERE id = ?', [id]);
-
-    return NextResponse.json(users[0], { status: 201 });
+    return NextResponse.json(
+      {
+        id: user._id,
+        username: user.username,
+        role: user.role,
+        name: user.name,
+        gmail: user.gmail,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Data tidak valid', details: error.errors }, { status: 400 });

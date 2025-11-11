@@ -1,11 +1,21 @@
-import { query } from './db';
+import connectDB from './db';
+import Notification from '@/models/Notification';
 import { generateId } from './utils';
 import { NotificationType, NotificationRelatedType } from '@/types/database';
 
 export async function createNotification(userId: string, title: string, message: string, type: NotificationType = 'INFO', relatedType: NotificationRelatedType, relatedId: string | null = null) {
   try {
+    await connectDB();
     const id = generateId();
-    await query('INSERT INTO Notification (id, userId, title, message, type, relatedType, relatedId) VALUES (?, ?, ?, ?, ?, ?, ?)', [id, userId, title, message, type, relatedType, relatedId]);
+    await Notification.create({
+      _id: id,
+      userId,
+      title,
+      message,
+      type,
+      relatedType,
+      relatedId: relatedId || undefined,
+    });
     return id;
   } catch (error) {
     console.error('Error creating notification:', error);

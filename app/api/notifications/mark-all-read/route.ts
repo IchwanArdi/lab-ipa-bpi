@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import Notification from '@/models/Notification';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -9,7 +10,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await query('UPDATE Notification SET isRead = TRUE WHERE userId = ? AND isRead = FALSE', [session.user.id]);
+    await connectDB();
+    await Notification.updateMany({ userId: session.user.id, isRead: false }, { $set: { isRead: true } });
 
     return NextResponse.json({ success: true });
   } catch (error) {

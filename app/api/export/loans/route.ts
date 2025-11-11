@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import Loan from '@/models/Loan';
 import * as XLSX from 'xlsx';
 
 export async function GET(request: NextRequest) {
@@ -10,42 +11,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const format = searchParams.get('format') || 'xlsx'; // xlsx or pdf
 
-    let sql = `
-      SELECT 
-        l.id,
-        l.quantity,
-        l.status,
-        l.borrowDate,
-        l.returnDate,
-        l.notes,
-        l.createdAt,
-        u.name as userName,
-        i.code as itemCode,
-        i.name as itemName,
-        i.category as itemCategory
-      FROM Loan l
-      INNER JOIN User u ON l.userId = u.id
-      INNER JOIN Item i ON l.itemId = i.id
-      WHERE 1=1
-    `;
-    const params: any[] = [];
-
+    const query: any = {};
     if (session.user.role === 'GURU') {
-      sql += ' AND l.userId = ?';
-      params.push(session.user.id);
+      query.userId = session.user.id;
     }
     if (status) {
-      sql += ' AND l.status = ?';
-      params.push(status);
+      query.status = status;
     }
 
-    sql += ' ORDER BY l.createdAt DESC';
-
-    const loans = await query<any[]>(sql, params);
+    const loans = await Loan.find(query)
+      .populate('userId', 'name')
+      .populate('itemId', 'code name category')
+      .sort({ createdAt: -1 });
 
     if (format === 'xlsx') {
       // Create workbook
@@ -53,10 +35,10 @@ export async function GET(request: NextRequest) {
       const worksheet = XLSX.utils.json_to_sheet(
         loans.map((loan) => ({
           Tanggal: new Date(loan.createdAt).toLocaleDateString('id-ID'),
-          Peminjam: loan.userName,
-          'Kode Alat': loan.itemCode,
-          'Nama Alat': loan.itemName,
-          Kategori: loan.itemCategory,
+          Peminjam: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any).name : '',
+          'Kode Alat': typeof loan.itemId === 'object' && loan.itemId ? (loan.itemId as any).code : '',
+          'Nama Alat': typeof loan.itemId === 'object' && loan.itemId ? (loan.itemId as any).name : '',
+          Kategori: typeof loan.itemId === 'object' && loan.itemId ? (loan.itemId as any).category : '',
           Jumlah: loan.quantity,
           'Tanggal Pinjam': new Date(loan.borrowDate).toLocaleDateString('id-ID'),
           'Tanggal Kembali': loan.returnDate ? new Date(loan.returnDate).toLocaleDateString('id-ID') : '-',
@@ -106,8 +88,8 @@ export async function GET(request: NextRequest) {
         head: [['Tanggal', 'Peminjam', 'Alat', 'Jumlah', 'Status']],
         body: loans.map((loan) => [
           new Date(loan.createdAt).toLocaleDateString('id-ID'),
-          loan.userName,
-          loan.itemName,
+          typeof loan.userId === 'object' && loan.userId ? (loan.userId as any).name : '',
+          typeof loan.itemId === 'object' && loan.itemId ? (loan.itemId as any).name : '',
           loan.quantity,
           loan.status === 'MENUNGGU' ? 'Menunggu' : loan.status === 'DISETUJUI' ? 'Disetujui' : loan.status === 'DIPINJAM' ? 'Dipinjam' : 'Dikembalikan',
         ]),

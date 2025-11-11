@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import Item from '@/models/Item';
 import * as XLSX from 'xlsx';
 
 export async function GET(request: NextRequest) {
@@ -10,7 +11,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const items = await query<any[]>('SELECT code, name, category, stock, `condition`, description, createdAt FROM Item ORDER BY createdAt DESC');
+    await connectDB();
+    const items = await Item.find().select('code name category stock condition description createdAt').sort({ createdAt: -1 });
 
     // Create workbook
     const workbook = XLSX.utils.book_new();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import Notification from '@/models/Notification';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -9,24 +10,34 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { id } = await params;
     const body = await request.json();
     const { isRead } = body;
 
     // Verify notification belongs to user
-    const notifications = await query<any[]>('SELECT * FROM Notification WHERE id = ? AND userId = ?', [id, session.user.id]);
+    const notification = await Notification.findOne({ _id: id, userId: session.user.id });
 
-    if (!notifications || notifications.length === 0) {
+    if (!notification) {
       return NextResponse.json({ error: 'Notifikasi tidak ditemukan' }, { status: 404 });
     }
 
     if (isRead !== undefined) {
-      await query('UPDATE Notification SET isRead = ? WHERE id = ?', [isRead, id]);
+      notification.isRead = isRead;
+      await notification.save();
     }
 
-    const updated = await query<any[]>('SELECT * FROM Notification WHERE id = ?', [id]);
-
-    return NextResponse.json(updated[0]);
+    return NextResponse.json({
+      id: notification._id,
+      userId: notification.userId,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      relatedType: notification.relatedType,
+      relatedId: notification.relatedId,
+      isRead: notification.isRead,
+      createdAt: notification.createdAt,
+    });
   } catch (error) {
     console.error('Error updating notification:', error);
     return NextResponse.json({ error: 'Gagal mengupdate notifikasi' }, { status: 500 });
@@ -40,16 +51,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { id } = await params;
 
     // Verify notification belongs to user
-    const notifications = await query<any[]>('SELECT * FROM Notification WHERE id = ? AND userId = ?', [id, session.user.id]);
+    const notification = await Notification.findOneAndDelete({ _id: id, userId: session.user.id });
 
-    if (!notifications || notifications.length === 0) {
+    if (!notification) {
       return NextResponse.json({ error: 'Notifikasi tidak ditemukan' }, { status: 404 });
     }
-
-    await query('DELETE FROM Notification WHERE id = ?', [id]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

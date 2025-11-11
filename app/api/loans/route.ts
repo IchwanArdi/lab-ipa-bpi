@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { query } from '@/lib/db';
+import connectDB from '@/lib/db';
+import Loan from '@/models/Loan';
+import Item from '@/models/Item';
+import User from '@/models/User';
 import { generateId } from '@/lib/utils';
 import { notifyLoanCreated } from '@/lib/notifications';
 import { z } from 'zod';
@@ -20,54 +23,50 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    await connectDB();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    let sql =
-      'SELECT l.*, u.id as user_id, u.name as user_name, u.username as user_username, i.id as item_id, i.code as item_code, i.name as item_name, i.category as item_category, i.stock as item_stock, i.`condition` as item_condition, i.description as item_description, i.createdAt as item_createdAt, i.updatedAt as item_updatedAt FROM Loan l INNER JOIN User u ON l.userId = u.id INNER JOIN Item i ON l.itemId = i.id WHERE 1=1';
-    const params: any[] = [];
-
+    const query: any = {};
     if (session.user.role === 'GURU') {
-      sql += ' AND l.userId = ?';
-      params.push(session.user.id);
+      query.userId = session.user.id;
     }
     if (status) {
-      sql += ' AND l.status = ?';
-      params.push(status);
+      query.status = status;
     }
 
-    sql += ' ORDER BY l.createdAt DESC';
+    const loans = await Loan.find(query).populate('userId', 'name username').populate('itemId').sort({ createdAt: -1 });
 
-    const loans = await query<any[]>(sql, params);
-
-    // Transform results to match expected format
-    const formattedLoans = loans.map((row: any) => ({
-      id: row.id,
-      userId: row.userId,
-      itemId: row.itemId,
-      quantity: row.quantity,
-      status: row.status,
-      borrowDate: row.borrowDate,
-      returnDate: row.returnDate,
-      notes: row.notes,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+    const formattedLoans = loans.map((loan) => ({
+      id: loan._id,
+      userId: loan.userId,
+      itemId: loan.itemId,
+      quantity: loan.quantity,
+      status: loan.status,
+      borrowDate: loan.borrowDate,
+      returnDate: loan.returnDate,
+      notes: loan.notes,
+      createdAt: loan.createdAt,
+      updatedAt: loan.updatedAt,
       user: {
-        id: row.user_id,
-        name: row.user_name,
-        username: row.user_username,
+        id: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any)._id : loan.userId,
+        name: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any).name : '',
+        username: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any).username : '',
       },
-      item: {
-        id: row.item_id,
-        code: row.item_code,
-        name: row.item_name,
-        category: row.item_category,
-        stock: row.item_stock,
-        condition: row.item_condition,
-        description: row.item_description,
-        createdAt: row.item_createdAt,
-        updatedAt: row.item_updatedAt,
-      },
+      item:
+        typeof loan.itemId === 'object' && loan.itemId
+          ? {
+              id: (loan.itemId as any)._id,
+              code: (loan.itemId as any).code,
+              name: (loan.itemId as any).name,
+              category: (loan.itemId as any).category,
+              stock: (loan.itemId as any).stock,
+              condition: (loan.itemId as any).condition,
+              description: (loan.itemId as any).description,
+              createdAt: (loan.itemId as any).createdAt,
+              updatedAt: (loan.itemId as any).updatedAt,
+            }
+          : null,
     }));
 
     return NextResponse.json(formattedLoans);
@@ -88,87 +87,80 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Hanya guru yang dapat meminjam alat' }, { status: 403 });
     }
 
+    await connectDB();
     const body = await request.json();
     const validatedData = loanSchema.parse(body);
 
     // Check item stock
-    const items = await query<any[]>('SELECT * FROM Item WHERE id = ?', [validatedData.itemId]);
+    const item = await Item.findById(validatedData.itemId);
 
-    if (!items || items.length === 0) {
+    if (!item) {
       return NextResponse.json({ error: 'Alat tidak ditemukan' }, { status: 404 });
     }
-
-    const item = items[0];
 
     if (item.stock < validatedData.quantity) {
       return NextResponse.json({ error: 'Stok tidak mencukupi' }, { status: 400 });
     }
 
     const id = generateId();
-    await query('INSERT INTO Loan (id, userId, itemId, quantity, borrowDate, returnDate, notes) VALUES (?, ?, ?, ?, ?, ?, ?)', [
-      id,
-      session.user.id,
-      validatedData.itemId,
-      validatedData.quantity,
-      validatedData.borrowDate,
-      validatedData.returnDate || null,
-      validatedData.notes || null,
-    ]);
+    const loan = await Loan.create({
+      _id: id,
+      userId: session.user.id,
+      itemId: validatedData.itemId,
+      quantity: validatedData.quantity,
+      borrowDate: new Date(validatedData.borrowDate),
+      returnDate: validatedData.returnDate ? new Date(validatedData.returnDate) : undefined,
+      notes: validatedData.notes || undefined,
+    });
 
-    // Get created loan with relations
-    const loans = await query<any[]>(
-      `SELECT 
-        l.*,
-        u.id as user_id, u.name as user_name, u.username as user_username,
-        i.*
-      FROM Loan l
-      INNER JOIN User u ON l.userId = u.id
-      INNER JOIN Item i ON l.itemId = i.id
-      WHERE l.id = ?`,
-      [id]
-    );
-
-    const row = loans[0];
-    const loan = {
-      id: row.id,
-      userId: row.userId,
-      itemId: row.itemId,
-      quantity: row.quantity,
-      status: row.status,
-      borrowDate: row.borrowDate,
-      returnDate: row.returnDate,
-      notes: row.notes,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      user: {
-        id: row.user_id,
-        name: row.user_name,
-        username: row.user_username,
-      },
-      item: {
-        id: row.id,
-        code: row.code,
-        name: row.name,
-        category: row.category,
-        stock: row.stock,
-        condition: row.condition,
-        description: row.description,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      },
-    };
+    // Populate relations
+    await loan.populate('userId', 'name username');
+    await loan.populate('itemId');
 
     // Notify admins about new loan request
     try {
-      const admins = await query<any[]>('SELECT id FROM User WHERE role = ?', ['ADMIN']);
-      const adminIds = admins.map((admin: any) => admin.id);
-      await notifyLoanCreated(id, session.user.id, row.name, adminIds);
+      const admins = await User.find({ role: 'ADMIN' }).select('_id');
+      const adminIds = admins.map((admin) => admin._id.toString());
+      await notifyLoanCreated(id, session.user.id, (loan.itemId as any).name, adminIds);
     } catch (error) {
       console.error('Error sending notification:', error);
       // Don't fail the request if notification fails
     }
 
-    return NextResponse.json(loan, { status: 201 });
+    return NextResponse.json(
+      {
+        id: loan._id,
+        userId: loan.userId,
+        itemId: loan.itemId,
+        quantity: loan.quantity,
+        status: loan.status,
+        borrowDate: loan.borrowDate,
+        returnDate: loan.returnDate,
+        notes: loan.notes,
+        createdAt: loan.createdAt,
+        updatedAt: loan.updatedAt,
+        user: {
+          id: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any)._id : loan.userId,
+          name: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any).name : '',
+          username: typeof loan.userId === 'object' && loan.userId ? (loan.userId as any).username : '',
+        },
+        item:
+          typeof loan.itemId === 'object' && loan.itemId
+            ? {
+                id: (loan.itemId as any)._id,
+                code: (loan.itemId as any).code,
+                name: (loan.itemId as any).name,
+                category: (loan.itemId as any).category,
+                stock: (loan.itemId as any).stock,
+                condition: (loan.itemId as any).condition,
+                description: (loan.itemId as any).description,
+                createdAt: (loan.itemId as any).createdAt,
+                updatedAt: (loan.itemId as any).updatedAt,
+              }
+            : null,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Data tidak valid', details: error.issues }, { status: 400 });
